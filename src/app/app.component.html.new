@@ -1,65 +1,8 @@
 <mat-toolbar color="primary" class="app-header">
   <span>Chess Tournament Manager</span>
-  <span class="spacer"></span>
-  
-  <!-- Data Persistence Controls -->
-  <div class="toolbar-actions">
-    <button mat-icon-button [matTooltip]="autosave ? 'Autosave is ON' : 'Autosave is OFF'" 
-            (click)="toggleAutosave()">
-      <mat-icon>{{ autosave ? 'sync' : 'sync_disabled' }}</mat-icon>
-    </button>
-    <button mat-icon-button matTooltip="Save Tournament" (click)="saveTournament()">
-      <mat-icon>save</mat-icon>
-    </button>
-    <button mat-icon-button matTooltip="Import Tournament" (click)="openImportDialog()">
-      <mat-icon>upload</mat-icon>
-    </button>
-    <button mat-icon-button matTooltip="Export Tournament" (click)="openExportDialog()">
-      <mat-icon>download</mat-icon>
-    </button>
-  </div>
 </mat-toolbar>
 
 <div class="tournament-container">
-  <!-- Tournament Configuration Panel -->
-  <mat-card class="config-card">
-    <mat-card-header>
-      <mat-card-title>Tournament Configuration</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <div class="config-row">
-        <mat-form-field appearance="outline">
-          <mat-label>Total Number of Players</mat-label>
-          <input matInput type="number" [(ngModel)]="totalPlayers" min="{{minPlayers}}" step="4">
-          <mat-hint>Minimum {{minPlayers}} players</mat-hint>
-        </mat-form-field>
-        
-        <div class="tournament-info">
-          <div class="info-item">
-            <span class="info-label">Number of Groups:</span>
-            <span class="info-value">{{numGroups}}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Players per Group:</span>
-            <span class="info-value">{{playersPerGroup}}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Qualifying from each Group:</span>
-            <span class="info-value">{{qualifiedPerGroup}}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Best Third-Placed Qualifiers:</span>
-            <span class="info-value">{{numThirdPlaced}}</span>
-          </div>
-        </div>
-        
-        <button mat-raised-button color="accent" (click)="resetTournament()">
-          Apply Changes
-        </button>
-      </div>
-    </mat-card-content>
-  </mat-card>
-
   <mat-tab-group>
     <mat-tab label="Group Stage">
       <div class="group-stage-container">
@@ -103,9 +46,9 @@
 
                   <ng-container matColumnDef="tiebreak">
                     <th mat-header-cell *matHeaderCellDef> Tiebreak </th>
-                    <td mat-cell *matCellDef="let player">                      <mat-form-field class="tiebreak-input">
-                        <input matInput type="number" [(ngModel)]="player.tiebreakPoints" 
-                              (ngModelChange)="updateTiebreaks()" min="0" step="0.1">
+                    <td mat-cell *matCellDef="let player">
+                      <mat-form-field class="tiebreak-input">
+                        <input matInput type="number" [(ngModel)]="player.tiebreakPoints" min="0" step="0.1">
                       </mat-form-field>
                     </td>
                   </ng-container>
@@ -151,8 +94,9 @@
                 <td mat-cell *matCellDef="let player"> {{player.tiebreakPoints}} </td>
               </ng-container>
               
-              <tr mat-header-row *matHeaderRowDef="['position', 'name', 'played', 'points', 'tiebreak']"></tr>              <tr mat-row *matRowDef="let row; columns: ['position', 'name', 'played', 'points', 'tiebreak'];"
-                  [ngClass]="{'best-third': isBestThird(row)}"></tr>
+              <tr mat-header-row *matHeaderRowDef="['position', 'name', 'played', 'points', 'tiebreak']"></tr>
+              <tr mat-row *matRowDef="let row; columns: ['position', 'name', 'played', 'points', 'tiebreak'];"
+                  [ngClass]="{'qualified': isBestThird(row)}"></tr>
             </table>
           </mat-card-content>
         </mat-card>

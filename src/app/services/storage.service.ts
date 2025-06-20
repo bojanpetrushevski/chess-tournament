@@ -1,0 +1,208 @@
+import { Injectable } from '@angular/core';
+
+// Use dynamic imports for Firebase to handle cases where the module might not be available
+// This makes the code more resilient during development
+let firebase: any;
+let firestore: any;
+
+// Tournament state interface to define what we're storing
+export interface TournamentState {
+  groups: any;
+  matches: any;
+  knockoutMatches: any[];
+  totalPlayers: number;
+  playersPerGroup: number;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class StorageService {
+  private db: any = null;
+  private useFirebase = true; // Set to true to use Firebase, false for local storage
+
+  // Firebase config - replace with your Firebase project config when needed
+  private firebaseConfig = {
+    apiKey: "AIzaSyC4zXMySDL4xuhnkiZz6zDzB09vw5mCo6A",
+    authDomain: "chess-tournament-62c01.firebaseapp.com",
+    projectId: "chess-tournament-62c01",
+    storageBucket: "chess-tournament-62c01.firebasestorage.app",
+    messagingSenderId: "640305648870",
+    appId: "1:640305648870:web:94ec0d04d0a3c52d53d727"
+  };
+  constructor() {
+    // Initialize Firebase if using it
+    if (this.useFirebase) {
+      this.initializeFirebase();
+    }
+  }
+
+  // Dynamically import and initialize Firebase
+  private async initializeFirebase() {
+    try {
+      // Dynamically import Firebase modules
+      const firebaseApp = await import('firebase/app');
+      const firebaseFirestore = await import('firebase/firestore');
+      
+      // Store references for later use
+      const app = firebaseApp.initializeApp(this.firebaseConfig);
+      this.db = firebaseFirestore.getFirestore(app);
+      
+      // Also store the modules for other functions to use
+      firebase = firebaseApp;
+      firestore = firebaseFirestore;
+      
+      console.log('Firebase initialized successfully');
+    } catch (error) {
+      console.error('Error initializing Firebase:', error);
+      // Fallback to local storage
+      this.useFirebase = false;
+    }
+  }
+
+  // Save tournament state
+  async saveTournamentState(data: TournamentState): Promise<void> {
+    try {
+      if (this.useFirebase && this.db) {
+        await this.saveToFirebase(data);
+      } else {
+        this.saveToLocalStorage(data);
+      }
+      console.log('Tournament state saved successfully');
+    } catch (error) {
+      console.error('Error saving tournament state:', error);
+    }
+  }
+
+  // Load tournament state
+  async loadTournamentState(): Promise<TournamentState | null> {
+    try {
+      if (this.useFirebase && this.db) {
+        return await this.loadFromFirebase();
+      } else {
+        return this.loadFromLocalStorage();
+      }
+    } catch (error) {
+      console.error('Error loading tournament state:', error);
+      return null;
+    }
+  }
+// Save to Firebase
+private async saveToFirebase(data: TournamentState): Promise<void> {
+  if (!this.db || !firestore) return;
+  
+  try {
+    // Check if the 'tournaments' collection exists, if not it will be created automatically
+    const tournamentRef = firestore.doc(this.db, 'tournaments', 'current');
+    await firestore.setDoc(tournamentRef, {
+      groups: data.groups,
+      matches: data.matches,
+      knockoutMatches: data.knockoutMatches,
+      totalPlayers: data.totalPlayers,
+      playersPerGroup: data.playersPerGroup,
+      lastUpdated: new Date().toISOString()
+    });
+    console.log('Data saved to Firestore successfully');
+  } catch (error) {
+    console.error('Error saving to Firestore:', error);
+    // Fallback to local storage if Firestore fails
+    this.saveToLocalStorage(data);
+  }
+}
+
+// Load from Firebase
+private async loadFromFirebase(): Promise<TournamentState | null> {
+  if (!this.db || !firestore) return null;
+  
+  try {
+    const tournamentRef = firestore.doc(this.db, 'tournaments', 'current');
+    const docSnap = await firestore.getDoc(tournamentRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        groups: data.groups,
+        matches: data.matches,
+        knockoutMatches: data.knockoutMatches,
+        totalPlayers: data.totalPlayers,
+        playersPerGroup: data.playersPerGroup
+      };
+    } else {
+      console.log('No tournament data found in Firestore - starting with new tournament');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error loading from Firestore:', error);
+    return this.loadFromLocalStorage(); // Fallback to local storage
+  }
+}
+
+  // Save to local storage
+  private saveToLocalStorage(data: TournamentState): void {
+    localStorage.setItem('chessTournamentState', JSON.stringify({
+      ...data,
+      lastUpdated: new Date().toISOString()
+    }));
+  }
+
+  // Load from local storage
+  private loadFromLocalStorage(): TournamentState | null {
+    const storedData = localStorage.getItem('chessTournamentState');
+    if (storedData) {
+      return JSON.parse(storedData);
+    }
+    return null;
+  }
+
+  // Clear stored data
+  clearStoredData(): void {
+    if (this.useFirebase && this.db) {
+      console.log('To clear Firebase data, use Firebase Console or implement a delete method');
+    } else {
+      localStorage.removeItem('chessTournamentState');
+      console.log('Local storage data cleared');
+    }
+  }
+
+  // Save to file (download as JSON)
+  exportToFile(data: TournamentState): void {
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    
+    // Create download link and trigger download
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chess-tournament-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  // Load from file
+  importFromFile(file: File): Promise<TournamentState> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        try {
+          if (typeof event.target?.result === 'string') {
+            const data = JSON.parse(event.target.result) as TournamentState;
+            resolve(data);
+          } else {
+            reject(new Error('Invalid file content'));
+          }
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = (error) => {
+        reject(error);
+      };
+      
+      reader.readAsText(file);
+    });
+  }
+}

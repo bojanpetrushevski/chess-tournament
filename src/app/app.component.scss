@@ -1,0 +1,248 @@
+.app-header {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tournament-container {
+  padding: 0 16px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.group-card {
+  margin-bottom: 20px;
+}
+
+.player-names {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.standings-table {
+  width: 100%;
+}
+
+.tiebreak-input {
+  width: 60px;
+  margin: -1.25em 0;
+}
+
+::ng-deep .tiebreak-input .mat-mdc-form-field-infix {
+  padding: 4px 0 !important;
+}
+
+tr.qualified {
+  background-color: rgba(76, 175, 80, 0.2);
+  font-weight: 500;
+}
+
+tr.best-third {
+  background-color: rgba(255, 193, 7, 0.2);
+  font-weight: 500;
+  
+  // Add border to make it more visible
+  td {
+    border-bottom: 2px solid rgba(255, 152, 0, 0.5);
+  }
+}
+
+.third-placed-card {
+  margin-bottom: 30px;
+}
+
+.third-placed-table {
+  width: 100%;
+}
+
+.matches-section {
+  margin-top: 30px;
+}
+
+.matches-container {
+  margin-bottom: 20px;
+}
+
+.matches-card {
+  margin-bottom: 16px;
+}
+
+.match-day {
+  padding: 16px;
+}
+
+.match-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.match-players {
+  display: flex;
+  align-items: center;
+  width: 60%;
+}
+
+.versus {
+  margin: 0 10px;
+  color: #757575;
+  font-weight: 500;
+}
+
+.match-result {
+  display: flex;
+  align-items: center;
+  
+  mat-form-field {
+    width: 80px;
+    margin: 0 5px;
+    
+    ::ng-deep .mat-mdc-form-field-infix {
+      font-size: 18px;
+    }
+    
+    ::ng-deep .mdc-text-field--outlined {
+      height: 52px;
+    }
+  }
+  
+  .score-input {
+    ::ng-deep .mat-mdc-text-field-wrapper {
+      background-color: #f5f5f5;
+    }
+    
+    ::ng-deep input {
+      font-size: 20px;
+      font-weight: 500;
+      text-align: center;
+    }
+      ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+      display: none;
+    }
+  }
+  
+  span {
+    font-size: 20px;
+    font-weight: 500;
+  }
+}
+
+.knockout-container {
+  padding: 20px 0;
+}
+
+.knockout-round {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 30px;
+
+  .knockout-match {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+  }
+  
+  button {
+    align-self: center;
+    margin-top: 16px;
+    width: 200px;
+  }
+}
+
+.final-round {
+  .final-match {
+    border: 2px solid gold;
+  }
+}
+
+.winner-announcement {
+  margin-top: 30px;
+  display: flex;
+  justify-content: center;
+  
+  .winner-card {
+    width: 400px;
+    text-align: center;
+    
+    mat-card-header {
+      justify-content: center;
+      
+      mat-icon {
+        color: gold;
+        font-size: 36px;
+        margin-right: 8px;
+      }
+    }
+    
+    h1 {
+      font-size: 32px;
+      margin: 20px 0;
+      color: #303f9f;
+    }
+  }
+}
+
+mat-divider {
+  margin: 30px 0;
+}
+
+.config-card {
+  margin-bottom: 24px;
+  
+  .config-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+    
+    mat-form-field {
+      min-width: 200px;
+    }
+  }
+  
+  .tournament-info {
+    display: flex;
+    flex-wrap: wrap;
+    flex: 1;
+    gap: 10px 30px;
+    
+    .info-item {
+      display: flex;
+      align-items: center;
+      
+      .info-label {
+        font-weight: 500;
+        margin-right: 8px;
+        color: #555;
+      }
+      
+      .info-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: #3f51b5;
+      }
+    }
+  }
+}
