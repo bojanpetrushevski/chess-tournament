@@ -106,21 +106,43 @@ private async saveToFirebase(data: TournamentState): Promise<void> {
     // Always update the lastUpdated timestamp
     data.lastUpdated = new Date().toISOString();
     
+    // Debug logging to check what's in matches before saving
+    console.log('Matches before saving:', data.matches);
+    console.log('Matches keys:', Object.keys(data.matches));
+      // Special handling for the matches object - ensure it's properly converted
+    let processedMatches = {};
+    if (data.matches) {
+      // Create a deep clone of the matches object to ensure we don't lose data
+      processedMatches = JSON.parse(JSON.stringify(data.matches));
+      console.log('Processed matches after JSON stringify/parse:', processedMatches);
+    }
+    
+    // Always ensure we have createdAt and lastUpdated values
+    const createdAt = data.createdAt || new Date().toISOString();
+    const lastUpdated = data.lastUpdated || new Date().toISOString();
+    
+    // Prepare data for Firestore by deep cloning and ensuring it's serializable
+    const firestoreData = {
+      id: data.id,
+      name: data.name || `Tournament ${new Date().toLocaleDateString()}`,
+      groups: this.prepareForFirestore(data.groups),
+      // Use the specially processed matches object
+      matches: processedMatches,
+      knockoutMatches: this.prepareForFirestore(data.knockoutMatches),
+      totalPlayers: data.totalPlayers,
+      playersPerGroup: data.playersPerGroup,
+      createdAt: createdAt,
+      lastUpdated: lastUpdated
+    };
+    
+    console.log('Prepared matches for Firestore:', firestoreData.matches);
+    console.log('Matches object keys after processing:', Object.keys(firestoreData.matches));
+    
     // Use the tournament's unique ID as the document ID
     const tournamentRef = firestore.doc(this.db, 'tournaments', data.id);
     
     // Save all tournament data
-    await firestore.setDoc(tournamentRef, {
-      id: data.id,
-      name: data.name || `Tournament ${new Date().toLocaleDateString()}`,
-      groups: data.groups,
-      matches: data.matches,
-      knockoutMatches: data.knockoutMatches,
-      totalPlayers: data.totalPlayers,
-      playersPerGroup: data.playersPerGroup,
-      createdAt: data.createdAt,
-      lastUpdated: data.lastUpdated
-    });
+    await firestore.setDoc(tournamentRef, firestoreData);
     
     // Also update the 'current' document to point to this tournament
     const currentRef = firestore.doc(this.db, 'tournaments', 'current');
@@ -156,17 +178,55 @@ private async loadFromFirebase(): Promise<TournamentState | null> {
     
     if (docSnap.exists()) {
       const data = docSnap.data();
-      return {
+      console.log('Raw data from Firestore:', data);
+      console.log('Matches from Firestore:', data.matches);
+        // Process the matches object to ensure it's the correct structure
+      let processedMatches = data.matches || {};
+      console.log('Matches keys from Firestore before processing:', 
+                Object.keys(processedMatches));
+      
+      // Check if matches is empty or missing appropriate structure
+      if (Object.keys(processedMatches).length === 0) {
+        console.warn('Matches object is empty or invalid, creating empty structure');
+        // Create empty structure for each group if groups exist
+        if (data.groups && Object.keys(data.groups).length > 0) {
+          Object.keys(data.groups).forEach(groupKey => {
+            processedMatches[groupKey] = [];
+          });
+        }
+      }
+      
+      // Ensure we have valid timestamp values
+      const currentTimestamp = new Date().toISOString();
+        // Preserve group ordering by sorting keys and rebuilding the groups object
+      const groups: {[key: string]: any} = {};
+      if (data.groups) {
+        // Get all group keys and sort them alphabetically (A, B, C, etc.)
+        const sortedGroupKeys = Object.keys(data.groups).sort();
+        
+        // Rebuild the groups object with sorted keys
+        sortedGroupKeys.forEach(key => {
+          groups[key] = data.groups[key];
+        });
+        
+        console.log('Group keys after sorting:', Object.keys(groups));
+      }
+      
+      const result = {
         id: data.id,
         name: data.name,
-        groups: data.groups,
-        matches: data.matches,
-        knockoutMatches: data.knockoutMatches,
-        totalPlayers: data.totalPlayers,
-        playersPerGroup: data.playersPerGroup,
-        createdAt: data.createdAt,
-        lastUpdated: data.lastUpdated
+        groups: groups || {}, // Use the sorted groups object
+        matches: processedMatches,
+        knockoutMatches: data.knockoutMatches || [],
+        totalPlayers: data.totalPlayers || 24,
+        playersPerGroup: data.playersPerGroup || 4,
+        createdAt: data.createdAt || currentTimestamp,
+        lastUpdated: data.lastUpdated || currentTimestamp
       };
+      
+      console.log('Processed tournament data:', result);
+      console.log('Matches keys after processing:', Object.keys(result.matches));
+      return result;
     } else {
       console.log('No tournament data found in Firestore - starting with new tournament');
       return null;
@@ -288,8 +348,7 @@ private async loadFromFirebase(): Promise<TournamentState | null> {
       return [];
     }
   }
-  
-  // Load a specific tournament by ID
+    // Load a specific tournament by ID
   async loadTournamentById(tournamentId: string): Promise<TournamentState | null> {
     if (!this.db || !firestore) {
       // If using local storage, just return the current one
@@ -302,22 +361,57 @@ private async loadFromFirebase(): Promise<TournamentState | null> {
       
       if (docSnap.exists()) {
         const data = docSnap.data();
+        console.log(`Raw data for tournament ${tournamentId} from Firestore:`, data);
         
         // Update the 'current' pointer to this tournament
         const currentRef = firestore.doc(this.db, 'tournaments', 'current');
         await firestore.setDoc(currentRef, { currentTournamentId: tournamentId });
         
-        return {
+        // Process the matches object to ensure it's the correct structure
+        let processedMatches = data.matches || {};
+        console.log('Matches keys from Firestore before processing:', Object.keys(processedMatches));
+        
+        // Check if matches is empty or missing appropriate structure
+        if (Object.keys(processedMatches).length === 0 && data.groups && Object.keys(data.groups).length > 0) {
+          console.warn('Matches object is empty or invalid, creating empty structure');
+          // Create empty structure for each group if groups exist
+          Object.keys(data.groups).forEach(groupKey => {
+            processedMatches[groupKey] = [];
+          });
+        }
+        
+        // Preserve group ordering by sorting keys and rebuilding the groups object
+        const groups: {[key: string]: any} = {};
+        if (data.groups) {
+          // Get all group keys and sort them alphabetically (A, B, C, etc.)
+          const sortedGroupKeys = Object.keys(data.groups).sort();
+          
+          // Rebuild the groups object with sorted keys
+          sortedGroupKeys.forEach(key => {
+            groups[key] = data.groups[key];
+          });
+          
+          console.log('Group keys after sorting in loadTournamentById:', sortedGroupKeys);
+        }
+        
+        // Ensure we have valid timestamp values
+        const currentTimestamp = new Date().toISOString();
+        
+        const result = {
           id: data.id,
           name: data.name,
-          groups: data.groups,
-          matches: data.matches,
-          knockoutMatches: data.knockoutMatches,
-          totalPlayers: data.totalPlayers,
-          playersPerGroup: data.playersPerGroup,
-          createdAt: data.createdAt,
-          lastUpdated: data.lastUpdated
+          groups: groups, // Use the sorted groups object
+          matches: processedMatches,
+          knockoutMatches: data.knockoutMatches || [],
+          totalPlayers: data.totalPlayers || 24,
+          playersPerGroup: data.playersPerGroup || 4,
+          createdAt: data.createdAt || currentTimestamp,
+          lastUpdated: data.lastUpdated || currentTimestamp
         };
+        
+        console.log(`Processed tournament data for ${tournamentId}:`, result);
+        console.log('Matches keys after processing:', Object.keys(result.matches));
+        return result;
       }
       
       return null;
@@ -346,5 +440,52 @@ private async loadFromFirebase(): Promise<TournamentState | null> {
     await this.saveTournamentState(newTournament);
     
     return newTournament;
+  }
+  // Helper method to prepare data for Firestore
+  private prepareForFirestore(data: any): any {
+    // Handle null or undefined
+    if (data === null || data === undefined) {
+      return null;
+    }
+    
+    // Handle arrays by recursively processing each element
+    if (Array.isArray(data)) {
+      return data.map(item => this.prepareForFirestore(item));
+    }
+    
+    // Handle Maps by converting to regular objects first
+    if (data instanceof Map) {
+      const obj: {[key: string]: any} = {};
+      data.forEach((value, key) => {
+        obj[key] = this.prepareForFirestore(value);
+      });
+      return obj;
+    }
+    
+    // Handle regular objects (not Date, not arrays, etc)
+    if (typeof data === 'object' && data !== null && !(data instanceof Date)) {
+      const result: {[key: string]: any} = {};
+      
+      // Process each key/value pair
+      for (const key in data) {
+        // Skip properties that start with "_" (typically internal properties)
+        if (!key.startsWith('_') && Object.prototype.hasOwnProperty.call(data, key)) {
+          result[key] = this.prepareForFirestore(data[key]);
+        }
+      }
+      
+      // Special handling for empty objects - make sure we detect key/value structure
+      if (Object.keys(result).length === 0 && Object.keys(data).length > 0) {
+        console.warn('Detected potentially problematic empty object after serialization');
+        // If the original object had keys but the result doesn't, something went wrong
+        // Return the stringified version to preserve the structure
+        return JSON.parse(JSON.stringify(data));
+      }
+      
+      return result;
+    }
+    
+    // Return primitives and other values as is
+    return data;
   }
 }

@@ -412,9 +412,9 @@ export class AppComponent implements OnInit {
     }
     return '';
   }
-
   getGroupNames(): string[] {
-  return Object.keys(this.groups);
+  // Return sorted group names to ensure consistent order (A, B, C, etc.)
+  return Object.keys(this.groups).sort();
 }
 
 sortedGroup(groupName: string): Player[] {
@@ -548,14 +548,22 @@ validateMatchResult(result: number | undefined): number {
         }
       }
     }
-  }
-  // Save the current tournament state
+  }  // Save the current tournament state
   saveTournament() {
+    // Debug the matches structure before saving
+    console.log('Matches structure before save:', this.matches);
+    console.log('Match keys:', Object.keys(this.matches));
+    
+    // Create a deep clone to ensure all nested objects are properly serialized
+    // This avoids issues with object references and ensures everything becomes a plain object
+    const serializedMatches = JSON.parse(JSON.stringify(this.matches));
+    console.log('Serialized matches:', serializedMatches);
+    
     const tournamentState: TournamentState = {
       id: this.currentTournamentId,
       name: this.currentTournamentName,
       groups: this.groups,
-      matches: this.matches,
+      matches: serializedMatches,
       knockoutMatches: this.knockoutMatches,
       totalPlayers: this.totalPlayers,
       playersPerGroup: this.playersPerGroup
