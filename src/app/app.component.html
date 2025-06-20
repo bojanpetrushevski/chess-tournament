@@ -41,8 +41,7 @@
           <input matInput type="number" [(ngModel)]="totalPlayers" min="{{minPlayers}}" step="4">
           <mat-hint>Minimum {{minPlayers}} players</mat-hint>
         </mat-form-field>
-        
-        <div class="tournament-info">
+          <div class="tournament-info">
           <div class="info-item">
             <span class="info-label">Number of Groups:</span>
             <span class="info-value">{{numGroups}}</span>
@@ -60,8 +59,10 @@
             <span class="info-value">{{numThirdPlaced}}</span>
           </div>
         </div>
-        
-        <button mat-raised-button color="accent" (click)="resetTournament()">
+          <button mat-raised-button color="accent" 
+                (click)="resetTournament()" 
+                [disabled]="isTournamentCompleted()"
+                [matTooltip]="isTournamentCompleted() ? 'Cannot modify tournament after a winner has been determined' : 'Apply configuration changes and reset tournament'">
           Apply Changes
         </button>
       </div>

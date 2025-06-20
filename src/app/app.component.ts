@@ -461,6 +461,18 @@ getGroupForPlayer(player: Player): string | null {
 
 // Reset and recalculate tournament with new player count
 resetTournament() {
+  // Check if there's a winner already
+  const winner = this.getStageWinner();
+  if (winner) {
+    // Show warning and don't reset if there's already a winner
+    this.snackBar.open(
+      `Cannot reset tournament: ${winner} has already won. Create a new tournament instead.`, 
+      'OK', 
+      { duration: 5000 }
+    );
+    return;
+  }
+  
   this.knockoutMatches = [];
   this.qualifiedPlayers = [];
   this.thirdPlaced = [];
@@ -474,6 +486,8 @@ resetTournament() {
   if (this.autosave) {
     this.saveTournament();
   }
+  
+  this.snackBar.open('Tournament has been reset with new configuration', 'OK', { duration: 3000 });
 }
 
 // Validate match result to only allow 0, 0.5, and 1
@@ -736,5 +750,10 @@ validateMatchResult(result: number | undefined): number {
     } else {
       this.snackBar.open('Could not load tournament', 'OK', { duration: 3000 });
     }
+  }
+
+  // Check if the tournament has been completed (has a winner)
+  isTournamentCompleted(): boolean {
+    return this.getStageWinner() !== '';
   }
 }
