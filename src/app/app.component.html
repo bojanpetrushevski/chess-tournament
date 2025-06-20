@@ -1,9 +1,17 @@
 <mat-toolbar color="primary" class="app-header">
-  <span>Chess Tournament Manager</span>
+  <span class="tournament-title" [matTooltip]="'Tournament ID: ' + currentTournamentId">{{ currentTournamentName }}</span>
   <span class="spacer"></span>
   
-  <!-- Data Persistence Controls -->
+  <!-- Tournament Management Controls -->
   <div class="toolbar-actions">
+    <button mat-icon-button matTooltip="List Tournaments" (click)="openTournamentListDialog()">
+      <mat-icon>list</mat-icon>
+    </button>
+    <button mat-icon-button matTooltip="Create New Tournament" (click)="createNewTournament()">
+      <mat-icon>add</mat-icon>
+    </button>
+    
+    <!-- Data Persistence Controls -->
     <button mat-icon-button [matTooltip]="autosave ? 'Autosave is ON' : 'Autosave is OFF'" 
             (click)="toggleAutosave()">
       <mat-icon>{{ autosave ? 'sync' : 'sync_disabled' }}</mat-icon>

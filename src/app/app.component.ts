@@ -13,6 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatListModule } from '@angular/material/list';
 import { StorageService, TournamentState } from './services/storage.service';
 interface Player {
   name: string;
@@ -55,7 +56,8 @@ interface KnockoutMatch {
     MatFormFieldModule,
     MatDividerModule,
     MatIconModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatListModule
   ],
   providers: [StorageService],
   templateUrl: './app.component.html',
@@ -86,6 +88,10 @@ export class AppComponent implements OnInit {
   // State persistence
   autosave: boolean = true;
   lastSaved: Date | null = null;
+  
+  // Tournament management
+  currentTournamentId: string | undefined;
+  currentTournamentName: string = 'Chess Tournament';
 
   constructor(
     private storageService: StorageService,
@@ -97,13 +103,16 @@ export class AppComponent implements OnInit {
     // Try to load previously saved tournament state
     this.loadSavedTournament();
   }
-  
-  // Load saved tournament if available
+    // Load saved tournament if available
   async loadSavedTournament() {
     const savedState = await this.storageService.loadTournamentState();
     
     if (savedState) {
       try {
+        // Update tournament info
+        this.currentTournamentId = savedState.id;
+        this.currentTournamentName = savedState.name || 'Chess Tournament';
+        
         // Restore tournament configuration
         this.totalPlayers = savedState.totalPlayers;
         this.playersPerGroup = savedState.playersPerGroup;
@@ -119,7 +128,7 @@ export class AppComponent implements OnInit {
         // Recalculate derived data
         this.updateKnockouts();
         
-        this.snackBar.open('Tournament loaded from saved data', 'OK', { duration: 3000 });
+        this.snackBar.open(`Tournament "${this.currentTournamentName}" loaded`, 'OK', { duration: 3000 });
       } catch (error) {
         console.error('Error restoring tournament state:', error);
         this.snackBar.open('Could not restore tournament state', 'OK', { duration: 3000 });
@@ -540,10 +549,11 @@ validateMatchResult(result: number | undefined): number {
       }
     }
   }
-
   // Save the current tournament state
   saveTournament() {
     const tournamentState: TournamentState = {
+      id: this.currentTournamentId,
+      name: this.currentTournamentName,
       groups: this.groups,
       matches: this.matches,
       knockoutMatches: this.knockoutMatches,
@@ -554,7 +564,13 @@ validateMatchResult(result: number | undefined): number {
     this.storageService.saveTournamentState(tournamentState)
       .then(() => {
         this.lastSaved = new Date();
-        this.snackBar.open('Tournament saved successfully', 'OK', { duration: 2000 });
+        
+        // Update the current tournament ID if it was newly generated
+        if (!this.currentTournamentId && tournamentState.id) {
+          this.currentTournamentId = tournamentState.id;
+        }
+        
+        this.snackBar.open(`Tournament "${this.currentTournamentName}" saved`, 'OK', { duration: 2000 });
       })
       .catch(error => {
         console.error('Error saving tournament:', error);
@@ -644,5 +660,73 @@ validateMatchResult(result: number | undefined): number {
         }
       });
     });
+  }
+
+  // Open the tournament list dialog to select a different tournament
+  openTournamentListDialog() {
+    import('./components/tournament-list-dialog.component').then(({ TournamentListDialogComponent }) => {
+      const dialogRef = this.dialog.open(TournamentListDialogComponent, {
+        width: '500px',
+        data: {
+          title: 'Select Tournament',
+          allowCreate: true
+        }
+      });
+      
+      dialogRef.afterClosed().subscribe(result => {
+        if (result && result.id) {
+          this.loadTournament(result.id);
+        }
+      });
+    });
+  }
+  
+  // Create a new tournament
+  async createNewTournament() {
+    // Ask for a name first
+    const name = prompt('Enter a name for the new tournament:');
+    
+    if (name !== null) {
+      const newTournament = await this.storageService.createNewTournament(name || undefined);
+      
+      // Reset all tournament data
+      this.currentTournamentId = newTournament.id;
+      this.currentTournamentName = newTournament.name || 'Chess Tournament';
+      
+      // Initialize the tournament structure
+      this.totalPlayers = 24;
+      this.playersPerGroup = 4;
+      this.calculateTournamentStructure();
+      this.initGroups();
+      this.scheduleMatches();
+      
+      this.snackBar.open(`Created new tournament: ${this.currentTournamentName}`, 'OK', { duration: 3000 });
+    }
+  }
+  
+  // Load a tournament by ID
+  async loadTournament(tournamentId: string) {
+    const tournament = await this.storageService.loadTournamentById(tournamentId);
+    
+    if (tournament) {
+      // Update tournament data
+      this.currentTournamentId = tournament.id;
+      this.currentTournamentName = tournament.name || 'Chess Tournament';
+      this.totalPlayers = tournament.totalPlayers;
+      this.playersPerGroup = tournament.playersPerGroup;
+      
+      // Load the tournament data
+      this.groups = tournament.groups;
+      this.matches = tournament.matches;
+      this.knockoutMatches = tournament.knockoutMatches;
+      
+      // Calculate derived values
+      this.calculateTournamentStructure();
+      this.updateKnockouts();
+      
+      this.snackBar.open(`Loaded tournament: ${this.currentTournamentName}`, 'OK', { duration: 3000 });
+    } else {
+      this.snackBar.open('Could not load tournament', 'OK', { duration: 3000 });
+    }
   }
 }

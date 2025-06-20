@@ -7,11 +7,15 @@ let firestore: any;
 
 // Tournament state interface to define what we're storing
 export interface TournamentState {
+  id?: string;         // Unique identifier for the tournament
+  name?: string;       // Optional name for the tournament
   groups: any;
   matches: any;
   knockoutMatches: any[];
   totalPlayers: number;
   playersPerGroup: number;
+  createdAt?: string;  // Creation timestamp
+  lastUpdated?: string; // Last update timestamp
 }
 
 @Injectable({
@@ -92,17 +96,37 @@ private async saveToFirebase(data: TournamentState): Promise<void> {
   if (!this.db || !firestore) return;
   
   try {
-    // Check if the 'tournaments' collection exists, if not it will be created automatically
-    const tournamentRef = firestore.doc(this.db, 'tournaments', 'current');
+    // Generate a unique ID for the tournament if it doesn't have one
+    if (!data.id) {
+      // Generate a timestamp-based ID for the tournament
+      data.id = `tournament_${Date.now()}`;
+      data.createdAt = new Date().toISOString();
+    }
+    
+    // Always update the lastUpdated timestamp
+    data.lastUpdated = new Date().toISOString();
+    
+    // Use the tournament's unique ID as the document ID
+    const tournamentRef = firestore.doc(this.db, 'tournaments', data.id);
+    
+    // Save all tournament data
     await firestore.setDoc(tournamentRef, {
+      id: data.id,
+      name: data.name || `Tournament ${new Date().toLocaleDateString()}`,
       groups: data.groups,
       matches: data.matches,
       knockoutMatches: data.knockoutMatches,
       totalPlayers: data.totalPlayers,
       playersPerGroup: data.playersPerGroup,
-      lastUpdated: new Date().toISOString()
+      createdAt: data.createdAt,
+      lastUpdated: data.lastUpdated
     });
-    console.log('Data saved to Firestore successfully');
+    
+    // Also update the 'current' document to point to this tournament
+    const currentRef = firestore.doc(this.db, 'tournaments', 'current');
+    await firestore.setDoc(currentRef, { currentTournamentId: data.id });
+    
+    console.log(`Tournament saved to Firestore with ID: ${data.id}`);
   } catch (error) {
     console.error('Error saving to Firestore:', error);
     // Fallback to local storage if Firestore fails
@@ -115,17 +139,33 @@ private async loadFromFirebase(): Promise<TournamentState | null> {
   if (!this.db || !firestore) return null;
   
   try {
-    const tournamentRef = firestore.doc(this.db, 'tournaments', 'current');
+    // First check the 'current' document to find the current tournament ID
+    const currentRef = firestore.doc(this.db, 'tournaments', 'current');
+    const currentDoc = await firestore.getDoc(currentRef);
+    
+    let tournamentId = 'current';
+    
+    if (currentDoc.exists()) {
+      // Get the current tournament ID
+      tournamentId = currentDoc.data().currentTournamentId;
+    }
+    
+    // Now load the actual tournament data
+    const tournamentRef = firestore.doc(this.db, 'tournaments', tournamentId);
     const docSnap = await firestore.getDoc(tournamentRef);
     
     if (docSnap.exists()) {
       const data = docSnap.data();
       return {
+        id: data.id,
+        name: data.name,
         groups: data.groups,
         matches: data.matches,
         knockoutMatches: data.knockoutMatches,
         totalPlayers: data.totalPlayers,
-        playersPerGroup: data.playersPerGroup
+        playersPerGroup: data.playersPerGroup,
+        createdAt: data.createdAt,
+        lastUpdated: data.lastUpdated
       };
     } else {
       console.log('No tournament data found in Firestore - starting with new tournament');
@@ -204,5 +244,107 @@ private async loadFromFirebase(): Promise<TournamentState | null> {
       
       reader.readAsText(file);
     });
+  }
+
+  // List all saved tournaments
+  async listTournaments(): Promise<{id: string, name: string, createdAt: string}[]> {
+    if (!this.db || !firestore) {
+      // Return just the local one if using local storage
+      const local = this.loadFromLocalStorage();
+      return local ? [{
+        id: 'local',
+        name: 'Local Tournament',
+        createdAt: local.createdAt || new Date().toISOString()
+      }] : [];
+    }
+    
+    try {
+      // Get all documents from the tournaments collection except 'current'
+      const tournamentsCollection = firestore.collection(this.db, 'tournaments');
+      const querySnapshot = await firestore.getDocs(tournamentsCollection);
+      
+      const tournaments: {id: string, name: string, createdAt: string}[] = [];
+      
+      querySnapshot.forEach((doc: any) => {
+        // Skip the 'current' document
+        if (doc.id !== 'current') {
+          const data = doc.data();
+          tournaments.push({
+            id: doc.id,
+            name: data.name || `Tournament ${new Date(data.createdAt).toLocaleDateString()}`,
+            createdAt: data.createdAt
+          });
+        }
+      });
+      
+      // Sort by creation date, newest first
+      tournaments.sort((a, b) => {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      return tournaments;
+    } catch (error) {
+      console.error('Error listing tournaments:', error);
+      return [];
+    }
+  }
+  
+  // Load a specific tournament by ID
+  async loadTournamentById(tournamentId: string): Promise<TournamentState | null> {
+    if (!this.db || !firestore) {
+      // If using local storage, just return the current one
+      return this.loadFromLocalStorage();
+    }
+    
+    try {
+      const tournamentRef = firestore.doc(this.db, 'tournaments', tournamentId);
+      const docSnap = await firestore.getDoc(tournamentRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // Update the 'current' pointer to this tournament
+        const currentRef = firestore.doc(this.db, 'tournaments', 'current');
+        await firestore.setDoc(currentRef, { currentTournamentId: tournamentId });
+        
+        return {
+          id: data.id,
+          name: data.name,
+          groups: data.groups,
+          matches: data.matches,
+          knockoutMatches: data.knockoutMatches,
+          totalPlayers: data.totalPlayers,
+          playersPerGroup: data.playersPerGroup,
+          createdAt: data.createdAt,
+          lastUpdated: data.lastUpdated
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error loading tournament with ID ${tournamentId}:`, error);
+      return null;
+    }
+  }
+  
+  // Create a new tournament (with optional name)
+  async createNewTournament(name?: string): Promise<TournamentState> {
+    // Create a basic empty tournament structure
+    const newTournament: TournamentState = {
+      id: `tournament_${Date.now()}`,
+      name: name || `Tournament ${new Date().toLocaleDateString()}`,
+      groups: {},
+      matches: {},
+      knockoutMatches: [],
+      totalPlayers: 24,
+      playersPerGroup: 4,
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // Save it
+    await this.saveTournamentState(newTournament);
+    
+    return newTournament;
   }
 }
